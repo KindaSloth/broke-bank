@@ -1,4 +1,4 @@
-package middleware
+package server
 
 import (
 	"log"
@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CorsMiddleWare() gin.HandlerFunc {
+func CorsMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		access_control_origin, ok := os.LookupEnv("ACCESS_CONTROL_ORIGIN")
 		if !ok {

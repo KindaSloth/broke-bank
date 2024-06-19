@@ -12,9 +12,9 @@ import (
 )
 
 type Repositories struct {
-	pg             *sqlx.DB
-	valkey         *valkey.Client
-	userRepository UserRepository
+	Pg             *sqlx.DB
+	Valkey         valkey.Client
+	UserRepository UserRepository
 }
 
 func New() Repositories {
@@ -51,8 +51,8 @@ func New() Repositories {
 	}
 
 	return Repositories{
-		pg:             pg,
-		valkey:         &valkey,
-		userRepository: UserRepository{pg, &valkey},
+		Pg:             pg,
+		Valkey:         valkey,
+		UserRepository: UserRepository{pg, &valkey},
 	}
 }

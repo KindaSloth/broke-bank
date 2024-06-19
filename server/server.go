@@ -2,27 +2,27 @@ package server
 
 import (
 	"broke-bank/repository"
-	"broke-bank/server/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
-	repositories repository.Repositories
+	Repositories repository.Repositories
 }
 
 func New() Server {
 	repos := repository.New()
 
-	return Server{repositories: repos}
+	return Server{Repositories: repos}
 }
 
 func (s *Server) SetupRouter() *gin.Engine {
 	router := gin.Default()
-
-	router.Use(middleware.CorsMiddleWare())
+	router.Use(CorsMiddleware())
 
 	router.GET("/health-check", func(ctx *gin.Context) { ctx.JSON(200, gin.H{"message": "Broke Bank"}) })
+
+	router.Use(s.AuthMiddleware())
 
 	return router
 }
