@@ -25,6 +25,7 @@ func (s *Server) SetupRouter() *gin.Engine {
 	router.POST("/login", s.Login())
 
 	router.Use(s.AuthMiddleware())
+	router.POST("/account/create", s.CreateAccount())
 
 	return router
 }

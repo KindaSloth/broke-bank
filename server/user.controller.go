@@ -33,7 +33,7 @@ func (s *Server) Register() gin.HandlerFunc {
 		if err != nil && err == sql.ErrNoRows {
 			err := s.Repositories.UserRepository.CreateUser(req.Email, string(encryptedPassword))
 			if err != nil {
-				log.Println("[ERROR] [Register] failed to create user:", err)
+				log.Println("[ERROR] [Register] failed to create user: ", err)
 				ctx.JSON(500, gin.H{"error": "Failed to create user"})
 				return
 			}
@@ -42,7 +42,7 @@ func (s *Server) Register() gin.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Println("[ERROR] [Register] an unexpected error occurred:", err)
+			log.Println("[ERROR] [Register] an unexpected error occurred: ", err)
 			ctx.JSON(500, gin.H{"error": "Unexpected error :("})
 			return
 		}
@@ -79,7 +79,7 @@ func (s *Server) Login() gin.HandlerFunc {
 
 		sessionId, err := uuid.NewV7()
 		if err != nil {
-			log.Println("[ERROR] [Login] an unexpected error occurred while creating session ID:", err)
+			log.Println("[ERROR] [Login] an unexpected error occurred while creating session ID: ", err)
 			ctx.JSON(500, gin.H{"error": "Unexpected error :("})
 			return
 		}
@@ -87,7 +87,7 @@ func (s *Server) Login() gin.HandlerFunc {
 		valkey := s.Repositories.Valkey
 		err = valkey.Do(ctx, valkey.B().Set().Key(sessionId.String()).Value(user.Id.String()).Nx().Build()).Error()
 		if err != nil {
-			log.Println("[ERROR] [Login] an unexpected error occurred while storing user session:", err)
+			log.Println("[ERROR] [Login] an unexpected error occurred while storing user session: ", err)
 			ctx.JSON(500, gin.H{"error": "Unexpected error :("})
 			return
 		}

@@ -5,12 +5,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/valkey-io/valkey-go"
 )
 
 type UserRepository struct {
-	Pg     *sqlx.DB
-	Valkey *valkey.Client
+	Pg *sqlx.DB
 }
 
 func (ur *UserRepository) CreateUser(email string, password string) error {
