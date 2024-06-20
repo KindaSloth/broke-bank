@@ -21,6 +21,8 @@ func (s *Server) SetupRouter() *gin.Engine {
 	router.Use(CorsMiddleware())
 
 	router.GET("/health-check", func(ctx *gin.Context) { ctx.JSON(200, gin.H{"message": "Broke Bank"}) })
+	router.POST("/register", s.Register())
+	router.POST("/login", s.Login())
 
 	router.Use(s.AuthMiddleware())
 
