@@ -25,6 +25,13 @@ func (s *Server) SetupRouter() *gin.Engine {
 	router.POST("/login", s.Login())
 
 	router.Use(s.AuthMiddleware())
+
+	// User endpoints
+	router.GET("/me", s.Me())
+	router.GET("/myAccounts", s.GetMyAccounts())
+
+	// Account endpoints
+	router.GET("/account/:id", s.GetAccount())
 	router.POST("/account/create", s.CreateAccount())
 
 	return router

@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"broke-bank/model"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -19,4 +21,28 @@ func (ac *AccountRepository) CreateAccount(user_id string, name string, status s
 	)
 
 	return err
+}
+
+func (ac *AccountRepository) GetMyAccount(acc_id string) (*model.Account, error) {
+	account := new(model.Account)
+	err := ac.Pg.Get(
+		account,
+		`SELECT acc.id, acc.user_id, acc.name, acc.balance, acc.status, acc.created_at, acc.updated_at 
+		FROM "account" acc WHERE acc.id = $1`,
+		acc_id,
+	)
+
+	return account, err
+}
+
+func (ac *AccountRepository) GetMyAccounts(user_id string) (*[]model.Account, error) {
+	accounts := new([]model.Account)
+	err := ac.Pg.Select(
+		accounts,
+		`SELECT acc.id, acc.user_id, acc.name, acc.balance, acc.status, acc.created_at, acc.updated_at 
+		FROM "account" acc WHERE acc.user_id = $1`,
+		user_id,
+	)
+
+	return accounts, err
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"broke-bank/utils"
 	"database/sql"
 	"log"
 
@@ -94,5 +95,60 @@ func (s *Server) Login() gin.HandlerFunc {
 
 		ctx.SetCookie("sessionId", sessionId.String(), 3600*24, "/", "localhost", true, true)
 		ctx.Status(200)
+	}
+}
+
+type MeResponse struct {
+	Email string `json:"user_email"`
+}
+
+func (s *Server) Me() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		user, err := utils.GetUser(ctx)
+		if err != nil {
+			log.Println("[ERROR] [CreateAccount] failed to get user from context: ", err)
+			ctx.Status(401)
+			return
+		}
+
+		ctx.JSON(200, gin.H{"payload": MeResponse{Email: user.Email}})
+	}
+}
+
+type GetAccountsResponse struct {
+	Id      uuid.UUID `json:"id"`
+	Name    string    `json:"name"`
+	Balance string    `json:"balance"`
+	// 'active' | 'inactive'
+	Status string `json:"status"`
+}
+
+func (s *Server) GetMyAccounts() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		user, err := utils.GetUser(ctx)
+		if err != nil {
+			log.Println("[ERROR] [CreateAccount] failed to get user from context: ", err)
+			ctx.Status(401)
+			return
+		}
+
+		raw_accounts, err := s.Repositories.AccountRepository.GetMyAccounts(user.Id.String())
+		if err != nil {
+			log.Println("[ERROR] [CreateAccount] failed to retrieve accounts: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to retrieve accounts"})
+			return
+		}
+
+		var accounts []GetAccountsResponse
+		for _, value := range *raw_accounts {
+			accounts = append(accounts, GetAccountsResponse{
+				Id:      value.Id,
+				Name:    value.Name,
+				Balance: value.Balance.StringFixed(2),
+				Status:  value.Status,
+			})
+		}
+
+		ctx.JSON(200, gin.H{"payload": accounts})
 	}
 }
