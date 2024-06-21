@@ -23,7 +23,7 @@ func (ac *AccountRepository) CreateAccount(user_id string, name string, status s
 	return err
 }
 
-func (ac *AccountRepository) GetMyAccount(acc_id string) (*model.Account, error) {
+func (ac *AccountRepository) GetAccount(acc_id string) (*model.Account, error) {
 	account := new(model.Account)
 	err := ac.Pg.Get(
 		account,
@@ -45,4 +45,15 @@ func (ac *AccountRepository) GetMyAccounts(user_id string) (*[]model.Account, er
 	)
 
 	return accounts, err
+}
+
+func (ac *AccountRepository) DisableAccount(acc_id string) error {
+	_, err := ac.Pg.Exec(
+		`UPDATE "account"
+		SET status = 'inactive'
+		WHERE id = $1`,
+		acc_id,
+	)
+
+	return err
 }

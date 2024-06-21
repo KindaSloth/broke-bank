@@ -33,6 +33,7 @@ func (s *Server) SetupRouter() *gin.Engine {
 	// Account endpoints
 	router.GET("/account/:id", s.GetAccount())
 	router.POST("/account/create", s.CreateAccount())
+	router.PATCH("/account/disable/:id", s.DisableAccount())
 
 	return router
 }
