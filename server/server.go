@@ -35,6 +35,12 @@ func (s *Server) SetupRouter() *gin.Engine {
 	router.POST("/account/create", s.CreateAccount())
 	router.PATCH("/account/disable/:id", s.DisableAccount())
 
+	// Transaction endpoints
+	router.GET("/transaction/:id", s.GetTransaction())
+	router.POST("/transaction/deposit", s.DepositTransaction())
+	router.POST("/transaction/withdrawal", s.WithdrawalTransaction())
+	router.POST("/transaction/transfer", s.TransferTransaction())
+
 	return router
 }
 

@@ -16,7 +16,6 @@ type CreateAccountRequest struct {
 func (s *Server) CreateAccount() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		req := CreateAccountRequest{}
-
 		if ctx.ShouldBindJSON(&req) != nil {
 			ctx.JSON(422, gin.H{"error": "Invalid input"})
 			return
@@ -50,8 +49,8 @@ type GetAccountResponse struct {
 
 func (s *Server) GetAccount() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		accountId := ctx.Param("id")
-		if accountId == "" {
+		account_id := ctx.Param("id")
+		if account_id == "" {
 			ctx.JSON(400, gin.H{"error": "Missing id param"})
 			return
 		}
@@ -63,9 +62,9 @@ func (s *Server) GetAccount() gin.HandlerFunc {
 			return
 		}
 
-		account, err := s.Repositories.AccountRepository.GetAccount(accountId)
+		account, err := s.Repositories.AccountRepository.GetAccount(account_id)
 		if err != nil {
-			log.Println("[ERROR] [GetAccount] failed to get account: ", err)
+			log.Printf("[ERROR] [GetAccount] failed to get account: %s, account ID: %s\n", err, account_id)
 			ctx.JSON(500, gin.H{"error": "Failed to get account"})
 			return
 		}
@@ -86,8 +85,8 @@ func (s *Server) GetAccount() gin.HandlerFunc {
 
 func (s *Server) DisableAccount() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		accountId := ctx.Param("id")
-		if accountId == "" {
+		account_id := ctx.Param("id")
+		if account_id == "" {
 			ctx.JSON(400, gin.H{"error": "Missing id param"})
 			return
 		}
@@ -99,7 +98,7 @@ func (s *Server) DisableAccount() gin.HandlerFunc {
 			return
 		}
 
-		account, err := s.Repositories.AccountRepository.GetAccount(accountId)
+		account, err := s.Repositories.AccountRepository.GetAccount(account_id)
 		if err != nil {
 			log.Println("[ERROR] [DisableAccount] failed to get account: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to get account"})
@@ -116,7 +115,7 @@ func (s *Server) DisableAccount() gin.HandlerFunc {
 			return
 		}
 
-		err = s.Repositories.AccountRepository.DisableAccount(accountId)
+		err = s.Repositories.AccountRepository.DisableAccount(account_id)
 		if err != nil {
 			log.Println("[ERROR] [DisableAccount] failed to disable account: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to disable account"})

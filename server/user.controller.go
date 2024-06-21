@@ -24,7 +24,7 @@ func (s *Server) Register() gin.HandlerFunc {
 			return
 		}
 
-		encryptedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		encrypted_password, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			ctx.JSON(500, gin.H{"error": "Failed to hash password"})
 			return
@@ -32,7 +32,7 @@ func (s *Server) Register() gin.HandlerFunc {
 
 		_, err = s.Repositories.UserRepository.GetUserByEmail(req.Email)
 		if err != nil && err == sql.ErrNoRows {
-			err := s.Repositories.UserRepository.CreateUser(req.Email, string(encryptedPassword))
+			err := s.Repositories.UserRepository.CreateUser(req.Email, string(encrypted_password))
 			if err != nil {
 				log.Println("[ERROR] [Register] failed to create user: ", err)
 				ctx.JSON(500, gin.H{"error": "Failed to create user"})
@@ -78,7 +78,7 @@ func (s *Server) Login() gin.HandlerFunc {
 			return
 		}
 
-		sessionId, err := uuid.NewV7()
+		session_id, err := uuid.NewV7()
 		if err != nil {
 			log.Println("[ERROR] [Login] an unexpected error occurred while creating session ID: ", err)
 			ctx.JSON(500, gin.H{"error": "Unexpected error :("})
@@ -86,14 +86,14 @@ func (s *Server) Login() gin.HandlerFunc {
 		}
 
 		valkey := s.Repositories.Valkey
-		err = valkey.Do(ctx, valkey.B().Set().Key(sessionId.String()).Value(user.Id.String()).Nx().Build()).Error()
+		err = valkey.Do(ctx, valkey.B().Set().Key(session_id.String()).Value(user.Id.String()).Nx().Build()).Error()
 		if err != nil {
 			log.Println("[ERROR] [Login] an unexpected error occurred while storing user session: ", err)
 			ctx.JSON(500, gin.H{"error": "Unexpected error :("})
 			return
 		}
 
-		ctx.SetCookie("sessionId", sessionId.String(), 3600*24, "/", "localhost", true, true)
+		ctx.SetCookie("sessionId", session_id.String(), 3600*24, "/", "localhost", true, true)
 		ctx.Status(200)
 	}
 }
