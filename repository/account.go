@@ -35,13 +35,27 @@ func (ac *AccountRepository) GetAccount(acc_id string) (*model.Account, error) {
 	return account, err
 }
 
-func (ac *AccountRepository) GetMyAccounts(user_id string) (*[]model.Account, error) {
+func (ac *AccountRepository) GetMyAccounts(user_id string, limit int, offset int) (*[]model.Account, error) {
 	accounts := new([]model.Account)
 	err := ac.Pg.Select(
 		accounts,
-		`SELECT acc.id, acc.user_id, acc.name, acc.balance, acc.status, acc.created_at, acc.updated_at 
-		FROM "account" acc WHERE acc.user_id = $1`,
+		`
+		SELECT 
+			acc.id, acc.user_id, acc.name, acc.balance, acc.status, acc.created_at, acc.updated_at 
+		FROM 
+			"account" acc 
+		WHERE 
+			acc.user_id = $1
+		ORDER BY
+			acc.status
+		LIMIT 
+			$2
+		OFFSET 
+			$3
+		`,
 		user_id,
+		limit,
+		offset,
 	)
 
 	return accounts, err

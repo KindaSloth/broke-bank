@@ -115,6 +115,11 @@ func (s *Server) Me() gin.HandlerFunc {
 	}
 }
 
+type GetMyAccountsRequest struct {
+	Limit  int `db:"limit" form:"limit"`
+	Offset int `db:"offset" form:"offset"`
+}
+
 type GetAccountsResponse struct {
 	Id      uuid.UUID `json:"id"`
 	Name    string    `json:"name"`
@@ -125,6 +130,18 @@ type GetAccountsResponse struct {
 
 func (s *Server) GetMyAccounts() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		req := GetMyAccountsRequest{}
+
+		if ctx.ShouldBindQuery(&req) != nil {
+			ctx.JSON(400, gin.H{"error": "Invalid input"})
+			ctx.Abort()
+			return
+		}
+
+		if req.Limit == 0 {
+			req.Limit = 10
+		}
+
 		user, err := utils.GetUser(ctx)
 		if err != nil {
 			log.Println("[ERROR] [CreateAccount] failed to get user from context: ", err)
@@ -132,14 +149,14 @@ func (s *Server) GetMyAccounts() gin.HandlerFunc {
 			return
 		}
 
-		raw_accounts, err := s.Repositories.AccountRepository.GetMyAccounts(user.Id.String())
+		raw_accounts, err := s.Repositories.AccountRepository.GetMyAccounts(user.Id.String(), req.Limit, req.Offset)
 		if err != nil {
 			log.Println("[ERROR] [CreateAccount] failed to retrieve accounts: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to retrieve accounts"})
 			return
 		}
 
-		var accounts []GetAccountsResponse
+		accounts := []GetAccountsResponse{}
 		for _, value := range *raw_accounts {
 			accounts = append(accounts, GetAccountsResponse{
 				Id:      value.Id,
