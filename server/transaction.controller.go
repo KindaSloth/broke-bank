@@ -121,6 +121,65 @@ func (s *Server) WithdrawalTransaction() gin.HandlerFunc {
 	}
 }
 
+type TransferTransactionRequest struct {
+	Amount        decimal.Decimal `json:"amount"`
+	FromAccountId string          `json:"from_account_id"`
+	ToAccountId   string          `json:"to_account_id"`
+}
+
 func (s *Server) TransferTransaction() gin.HandlerFunc {
-	return func(ctx *gin.Context) {}
+	return func(ctx *gin.Context) {
+		req := TransferTransactionRequest{}
+		if ctx.ShouldBindJSON(&req) != nil || req.Amount.LessThan(decimal.NewFromInt(0)) || req.FromAccountId == req.ToAccountId {
+			ctx.JSON(422, gin.H{"error": "Invalid input"})
+			return
+		}
+
+		user, err := utils.GetUser(ctx)
+		if err != nil {
+			log.Println("[ERROR] [TransferTransaction] failed to get user from context: ", err)
+			ctx.Status(401)
+			return
+		}
+
+		from_account, err := s.Repositories.AccountRepository.GetAccount(req.FromAccountId)
+		if err != nil {
+			log.Printf("[ERROR] [TransferTransaction] failed to get sender account: %s, account ID: %s\n", err, req.FromAccountId)
+			ctx.JSON(500, gin.H{"error": "Failed to get sender account"})
+			return
+		}
+
+		if from_account.UserId != user.Id {
+			ctx.JSON(500, gin.H{"error": "This account does not belongs to the user"})
+			return
+		}
+
+		if from_account.Balance.LessThan(req.Amount) {
+			ctx.JSON(500, gin.H{"error": "Insufficient account balance"})
+			return
+		}
+
+		_, err = s.Repositories.AccountRepository.GetAccount(req.ToAccountId)
+		if err != nil {
+			log.Printf("[ERROR] [TransferTransaction] failed to get receiver account: %s, account ID: %s\n", err, req.ToAccountId)
+			ctx.JSON(500, gin.H{"error": "Failed to get receiver account"})
+			return
+		}
+
+		transaction_id, err := uuid.NewV7()
+		if err != nil {
+			log.Println("[ERROR] [TransferTransaction] an unexpected error occurred while creating transaction ID: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to complete transfer transaction"})
+			return
+		}
+
+		err = s.Repositories.TransactionRepository.TransferTransaction(transaction_id, req.FromAccountId, req.ToAccountId, req.Amount)
+		if err != nil {
+			log.Println("[ERROR] [TransferTransaction] failed to complete transfer transaction: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to complete transfer transaction"})
+			return
+		}
+
+		ctx.Status(200)
+	}
 }

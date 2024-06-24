@@ -70,7 +70,43 @@ func (tr *TransactionRepository) WithdrawalTransaction(transaction_id uuid.UUID,
 		return err
 	}
 
-	if _, err = tx.Exec(`INSERT INTO "transaction" (id, type, to_account_id, amount) VALUES ($1, 'withdrawal', $2, $3)`, transaction_id, from_account_id, amount); err != nil {
+	if _, err = tx.Exec(`INSERT INTO "transaction" (id, type, from_account_id, amount) VALUES ($1, 'withdrawal', $2, $3)`, transaction_id, from_account_id, amount); err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+
+	return err
+}
+
+func (tr *TransactionRepository) TransferTransaction(transaction_id uuid.UUID, from_account_id string, to_account_id string, amount decimal.Decimal) error {
+	tx, err := tr.Pg.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, from_account_id); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, to_account_id); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`UPDATE "account" SET balance = balance - $2 WHERE id = $1`, from_account_id, amount); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`UPDATE "account" SET balance = balance + $2 WHERE id = $1`, to_account_id, amount); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`INSERT INTO "transaction" (id, type, from_account_id, to_account_id, amount) VALUES ($1, 'transfer', $2, $3, $4)`, transaction_id, from_account_id, to_account_id, amount); err != nil {
 		return err
 	}
 
