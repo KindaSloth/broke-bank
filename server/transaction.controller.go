@@ -110,6 +110,13 @@ func (s *Server) WithdrawalTransaction() gin.HandlerFunc {
 			return
 		}
 
+		tx, err := s.Repositories.TransactionRepository.GetTransaction(transaction_id.String())
+		if tx != nil && err == nil {
+			log.Println("[ERROR] [WithdrawalTransaction] duplicated transaction: ", err)
+			ctx.JSON(500, gin.H{"error": "Duplicated transaction"})
+			return
+		}
+
 		err = s.Repositories.TransactionRepository.WithdrawalTransaction(transaction_id, req.FromAccountId, req.Amount)
 		if err != nil {
 			log.Println("[ERROR] [WithdrawalTransaction] failed to complete withdrawal transaction: ", err)
@@ -170,6 +177,13 @@ func (s *Server) TransferTransaction() gin.HandlerFunc {
 		if err != nil {
 			log.Println("[ERROR] [TransferTransaction] an unexpected error occurred while creating transaction ID: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to complete transfer transaction"})
+			return
+		}
+
+		tx, err := s.Repositories.TransactionRepository.GetTransaction(transaction_id.String())
+		if tx != nil && err == nil {
+			log.Println("[ERROR] [TransferTransaction] duplicated transaction: ", err)
+			ctx.JSON(500, gin.H{"error": "Duplicated transaction"})
 			return
 		}
 
