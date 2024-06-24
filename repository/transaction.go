@@ -50,3 +50,31 @@ func (tr *TransactionRepository) DepositTransaction(transaction_id uuid.UUID, to
 
 	return err
 }
+
+func (tr *TransactionRepository) WithdrawalTransaction(transaction_id uuid.UUID, from_account_id string, amount decimal.Decimal) error {
+	tx, err := tr.Pg.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, from_account_id); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`UPDATE "account" SET balance = balance - $2 WHERE id = $1`, from_account_id, amount); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(`INSERT INTO "transaction" (id, type, to_account_id, amount) VALUES ($1, 'withdrawal', $2, $3)`, transaction_id, from_account_id, amount); err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+
+	return err
+}
