@@ -90,6 +90,7 @@ func (tr *TransactionRepository) TransferTransaction(transaction_id uuid.UUID, f
 		return err
 	}
 
+	// TODO: Sort the IDs here before locking; this will ensure that the locks always happen in the same order to avoid deadlock issues.
 	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, from_account_id); err != nil {
 		return err
 	}
