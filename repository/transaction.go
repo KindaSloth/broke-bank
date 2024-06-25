@@ -2,6 +2,7 @@ package repository
 
 import (
 	"broke-bank/model"
+	"broke-bank/utils"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -90,12 +91,12 @@ func (tr *TransactionRepository) TransferTransaction(transaction_id uuid.UUID, f
 		return err
 	}
 
-	// TODO: Sort the IDs here before locking; this will ensure that the locks always happen in the same order to avoid deadlock issues.
-	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, from_account_id); err != nil {
+	// Sort the UUIDs here before locking; this will ensure that the locks always happen in the same order to avoid deadlock issues.
+	first_id_lock, second_id_lock := utils.SortStringUUIDs(from_account_id, to_account_id)
+	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, first_id_lock); err != nil {
 		return err
 	}
-
-	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, to_account_id); err != nil {
+	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, second_id_lock); err != nil {
 		return err
 	}
 
