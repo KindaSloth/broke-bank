@@ -31,15 +31,12 @@ func (tr *TransactionRepository) DepositTransaction(transaction_id uuid.UUID, to
 	}
 	defer tx.Rollback()
 
-	if _, err = tx.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
+	account_balance := new(AccountBalance)
+	if err = tx.Get(account_balance, `SELECT acc.id, acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, to_account_id); err != nil {
 		return err
 	}
 
-	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, to_account_id); err != nil {
-		return err
-	}
-
-	if _, err = tx.Exec(`UPDATE "account" SET balance = balance + $2 WHERE id = $1`, to_account_id, amount); err != nil {
+	if _, err = tx.Exec(`UPDATE "account" SET balance = $1 WHERE id = $2`, account_balance.Balance.Add(amount), to_account_id); err != nil {
 		return err
 	}
 
@@ -59,15 +56,12 @@ func (tr *TransactionRepository) WithdrawalTransaction(transaction_id uuid.UUID,
 	}
 	defer tx.Rollback()
 
-	if _, err = tx.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
+	account_balance := new(AccountBalance)
+	if err = tx.Get(account_balance, `SELECT acc.id, acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, from_account_id); err != nil {
 		return err
 	}
 
-	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, from_account_id); err != nil {
-		return err
-	}
-
-	if _, err = tx.Exec(`UPDATE "account" SET balance = balance - $2 WHERE id = $1`, from_account_id, amount); err != nil {
+	if _, err = tx.Exec(`UPDATE "account" SET balance = $1 WHERE id = $2`, account_balance.Balance.Sub(amount), from_account_id); err != nil {
 		return err
 	}
 
@@ -80,6 +74,19 @@ func (tr *TransactionRepository) WithdrawalTransaction(transaction_id uuid.UUID,
 	return err
 }
 
+type AccountBalance struct {
+	Id      uuid.UUID       `db:"id" json:"id"`
+	Balance decimal.Decimal `db:"balance" json:"balance"`
+}
+
+func GetAccountBalance(first_account_balance *AccountBalance, second_account_balance *AccountBalance, account_id string) decimal.Decimal {
+	if first_account_balance.Id.String() == account_id {
+		return first_account_balance.Balance
+	}
+
+	return second_account_balance.Balance
+}
+
 func (tr *TransactionRepository) TransferTransaction(transaction_id uuid.UUID, from_account_id string, to_account_id string, amount decimal.Decimal) error {
 	tx, err := tr.Pg.Beginx()
 	if err != nil {
@@ -87,24 +94,25 @@ func (tr *TransactionRepository) TransferTransaction(transaction_id uuid.UUID, f
 	}
 	defer tx.Rollback()
 
-	if _, err = tx.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
-		return err
-	}
-
 	// Sort the UUIDs here before locking; this will ensure that the locks always happen in the same order to avoid deadlock issues.
 	first_id_lock, second_id_lock := utils.SortStringUUIDs(from_account_id, to_account_id)
-	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, first_id_lock); err != nil {
+	first_account_balance := new(AccountBalance)
+	if err = tx.Get(first_account_balance, `SELECT acc.id, acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, first_id_lock); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(`SELECT acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, second_id_lock); err != nil {
+	second_account_balance := new(AccountBalance)
+	if err = tx.Get(second_account_balance, `SELECT acc.id, acc.balance FROM "account" acc WHERE acc.id = $1 FOR UPDATE`, second_id_lock); err != nil {
 		return err
 	}
 
-	if _, err = tx.Exec(`UPDATE "account" SET balance = balance - $2 WHERE id = $1`, from_account_id, amount); err != nil {
+	from_account_balance := GetAccountBalance(first_account_balance, second_account_balance, from_account_id)
+	to_account_balance := GetAccountBalance(first_account_balance, second_account_balance, to_account_id)
+
+	if _, err = tx.Exec(`UPDATE "account" SET balance = $1 WHERE id = $2`, from_account_balance.Sub(amount), from_account_id); err != nil {
 		return err
 	}
 
-	if _, err = tx.Exec(`UPDATE "account" SET balance = balance + $2 WHERE id = $1`, to_account_id, amount); err != nil {
+	if _, err = tx.Exec(`UPDATE "account" SET balance = $1 WHERE id = $2`, to_account_balance.Add(amount), to_account_id); err != nil {
 		return err
 	}
 
