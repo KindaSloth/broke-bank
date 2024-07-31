@@ -30,9 +30,17 @@ func (s *Server) Register() gin.HandlerFunc {
 			return
 		}
 
-		_, err = s.Repositories.UserRepository.GetUserByEmail(req.Email)
+		conn, err := s.Repositories.Pg.Connx(ctx)
+		if err != nil {
+			log.Println("[ERROR] [Register] failed to get connection from db pool: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to create user"})
+			return
+		}
+		defer conn.Close()
+
+		_, err = s.Repositories.UserRepository.GetUserByEmail(ctx, conn, req.Email)
 		if err != nil && err == sql.ErrNoRows {
-			err := s.Repositories.UserRepository.CreateUser(req.Email, string(encrypted_password))
+			err := s.Repositories.UserRepository.CreateUser(ctx, conn, req.Email, string(encrypted_password))
 			if err != nil {
 				log.Println("[ERROR] [Register] failed to create user: ", err)
 				ctx.JSON(500, gin.H{"error": "Failed to create user"})
@@ -66,7 +74,15 @@ func (s *Server) Login() gin.HandlerFunc {
 			return
 		}
 
-		user, err := s.Repositories.UserRepository.GetUserByEmail(req.Email)
+		conn, err := s.Repositories.Pg.Connx(ctx)
+		if err != nil {
+			log.Println("[ERROR] [Login] failed to get connection from db pool: ", err)
+			ctx.JSON(500, gin.H{"error": "Unexpected error :("})
+			return
+		}
+		defer conn.Close()
+
+		user, err := s.Repositories.UserRepository.GetUserByEmail(ctx, conn, req.Email)
 		if err != nil {
 			ctx.JSON(409, gin.H{"error": "Email not registered"})
 			return
@@ -144,14 +160,22 @@ func (s *Server) GetMyAccounts() gin.HandlerFunc {
 
 		user, err := utils.GetUser(ctx)
 		if err != nil {
-			log.Println("[ERROR] [CreateAccount] failed to get user from context: ", err)
+			log.Println("[ERROR] [GetMyAccounts] failed to get user from context: ", err)
 			ctx.Status(401)
 			return
 		}
 
-		raw_accounts, err := s.Repositories.AccountRepository.GetMyAccounts(user.Id.String(), req.Limit, req.Offset)
+		conn, err := s.Repositories.Pg.Connx(ctx)
 		if err != nil {
-			log.Println("[ERROR] [CreateAccount] failed to retrieve accounts: ", err)
+			log.Println("[ERROR] [GetMyAccounts] failed to get connection from db pool: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to retrieve accounts"})
+			return
+		}
+		defer conn.Close()
+
+		raw_accounts, err := s.Repositories.AccountRepository.GetMyAccounts(ctx, conn, user.Id.String(), req.Limit, req.Offset)
+		if err != nil {
+			log.Println("[ERROR] [GetMyAccounts] failed to retrieve accounts: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to retrieve accounts"})
 			return
 		}

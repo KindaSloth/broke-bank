@@ -18,7 +18,15 @@ func (s *Server) GetTransaction() gin.HandlerFunc {
 			return
 		}
 
-		transaction, err := s.Repositories.TransactionRepository.GetTransaction(transaction_id)
+		conn, err := s.Repositories.Pg.Connx(ctx)
+		if err != nil {
+			log.Println("[ERROR] [GetTransaction] failed to get connection from db pool: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to get transaction"})
+			return
+		}
+		defer conn.Close()
+
+		transaction, err := s.Repositories.TransactionRepository.GetTransaction(ctx, conn, transaction_id)
 		if err != nil {
 			log.Printf("[ERROR] [GetTransaction] failed to get transaction: %s, transaction ID: %s\n", err, transaction_id)
 			ctx.JSON(500, gin.H{"error": "Failed to get transaction"})
@@ -42,14 +50,6 @@ func (s *Server) DepositTransaction() gin.HandlerFunc {
 			return
 		}
 
-		if _, err := s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
-			log.Println("[ERROR] [DepositTransaction] failed to set SERIALIZABLE transaction level: ", err)
-			ctx.JSON(500, gin.H{"error": "Failed to complete deposit transaction"})
-			return
-		}
-		// TODO: handle err
-		defer s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`)
-
 		transaction_id, err := uuid.NewV7()
 		if err != nil {
 			log.Println("[ERROR] [DepositTransaction] an unexpected error occurred while creating transaction ID: ", err)
@@ -57,14 +57,22 @@ func (s *Server) DepositTransaction() gin.HandlerFunc {
 			return
 		}
 
-		tx, err := s.Repositories.TransactionRepository.GetTransaction(transaction_id.String())
+		conn, err := s.Repositories.Pg.Connx(ctx)
+		if err != nil {
+			log.Println("[ERROR] [DepositTransaction] failed to get connection from db pool: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to complete deposit transaction"})
+			return
+		}
+		defer conn.Close()
+
+		tx, err := s.Repositories.TransactionRepository.GetTransaction(ctx, conn, transaction_id.String())
 		if tx != nil && err == nil {
 			log.Println("[ERROR] [DepositTransaction] duplicated transaction: ", err)
 			ctx.JSON(500, gin.H{"error": "Duplicated transaction"})
 			return
 		}
 
-		err = s.Repositories.TransactionRepository.DepositTransaction(transaction_id, req.ToAccountId, req.Amount)
+		err = s.Repositories.TransactionRepository.DepositTransaction(ctx, conn, transaction_id, req.ToAccountId, req.Amount)
 		if err != nil {
 			log.Println("[ERROR] [DepositTransaction] failed to complete deposit transaction: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to complete deposit transaction"})
@@ -95,15 +103,15 @@ func (s *Server) WithdrawalTransaction() gin.HandlerFunc {
 			return
 		}
 
-		if _, err = s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
-			log.Println("[ERROR] [WithdrawalTransaction] failed to set SERIALIZABLE transaction level: ", err)
+		conn, err := s.Repositories.Pg.Connx(ctx)
+		if err != nil {
+			log.Println("[ERROR] [WithdrawalTransaction] failed to get connection from db pool: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to complete withdrawal transaction"})
 			return
 		}
-		// TODO: handle err
-		defer s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`)
+		defer conn.Close()
 
-		account, err := s.Repositories.AccountRepository.GetAccount(req.FromAccountId)
+		account, err := s.Repositories.AccountRepository.GetAccount(ctx, conn, req.FromAccountId)
 		if err != nil {
 			log.Printf("[ERROR] [WithdrawalTransaction] failed to get account: %s, account ID: %s\n", err, req.FromAccountId)
 			ctx.JSON(500, gin.H{"error": "Failed to get account"})
@@ -127,14 +135,14 @@ func (s *Server) WithdrawalTransaction() gin.HandlerFunc {
 			return
 		}
 
-		tx, err := s.Repositories.TransactionRepository.GetTransaction(transaction_id.String())
+		tx, err := s.Repositories.TransactionRepository.GetTransaction(ctx, conn, transaction_id.String())
 		if tx != nil && err == nil {
 			log.Println("[ERROR] [WithdrawalTransaction] duplicated transaction: ", err)
 			ctx.JSON(500, gin.H{"error": "Duplicated transaction"})
 			return
 		}
 
-		err = s.Repositories.TransactionRepository.WithdrawalTransaction(transaction_id, req.FromAccountId, req.Amount)
+		err = s.Repositories.TransactionRepository.WithdrawalTransaction(ctx, conn, transaction_id, req.FromAccountId, req.Amount)
 		if err != nil {
 			log.Println("[ERROR] [WithdrawalTransaction] failed to complete withdrawal transaction: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to complete withdrawal transaction"})
@@ -166,15 +174,15 @@ func (s *Server) TransferTransaction() gin.HandlerFunc {
 			return
 		}
 
-		if _, err = s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
-			log.Println("[ERROR] [TransferTransaction] failed to set SERIALIZABLE transaction level: ", err)
+		conn, err := s.Repositories.Pg.Connx(ctx)
+		if err != nil {
+			log.Println("[ERROR] [TransferTransaction] failed to get connection from db pool: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to complete transfer transaction"})
 			return
 		}
-		// TODO: handle err
-		defer s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`)
+		defer conn.Close()
 
-		from_account, err := s.Repositories.AccountRepository.GetAccount(req.FromAccountId)
+		from_account, err := s.Repositories.AccountRepository.GetAccount(ctx, conn, req.FromAccountId)
 		if err != nil {
 			log.Printf("[ERROR] [TransferTransaction] failed to get sender account: %s, account ID: %s\n", err, req.FromAccountId)
 			ctx.JSON(500, gin.H{"error": "Failed to get sender account"})
@@ -191,7 +199,7 @@ func (s *Server) TransferTransaction() gin.HandlerFunc {
 			return
 		}
 
-		_, err = s.Repositories.AccountRepository.GetAccount(req.ToAccountId)
+		_, err = s.Repositories.AccountRepository.GetAccount(ctx, conn, req.ToAccountId)
 		if err != nil {
 			log.Printf("[ERROR] [TransferTransaction] failed to get receiver account: %s, account ID: %s\n", err, req.ToAccountId)
 			ctx.JSON(500, gin.H{"error": "Failed to get receiver account"})
@@ -205,7 +213,7 @@ func (s *Server) TransferTransaction() gin.HandlerFunc {
 			return
 		}
 
-		tx, err := s.Repositories.TransactionRepository.GetTransaction(transaction_id.String())
+		tx, err := s.Repositories.TransactionRepository.GetTransaction(ctx, conn, transaction_id.String())
 		if tx != nil && err == nil {
 			log.Println("[ERROR] [TransferTransaction] duplicated transaction: ", err)
 			ctx.JSON(500, gin.H{"error": "Duplicated transaction"})
@@ -215,7 +223,7 @@ func (s *Server) TransferTransaction() gin.HandlerFunc {
 		max_retries := 3
 
 		for i := 0; i < max_retries; i++ {
-			err = s.Repositories.TransactionRepository.TransferTransaction(transaction_id, req.FromAccountId, req.ToAccountId, req.Amount)
+			err = s.Repositories.TransactionRepository.TransferTransaction(ctx, conn, transaction_id, req.FromAccountId, req.ToAccountId, req.Amount)
 			if err == nil {
 				ctx.Status(200)
 				return

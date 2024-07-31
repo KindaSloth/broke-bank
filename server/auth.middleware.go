@@ -36,7 +36,16 @@ func (s *Server) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		user, err := s.Repositories.UserRepository.GetUserById(id)
+		conn, err := s.Repositories.Pg.Connx(ctx)
+		if err != nil {
+			fmt.Printf("[ERROR] [AuthMiddleware] failed get connection from db pool: %s\n", err)
+			ctx.JSON(401, gin.H{"message": "Unauthorized"})
+			ctx.Abort()
+			return
+		}
+		defer conn.Close()
+
+		user, err := s.Repositories.UserRepository.GetUserById(ctx, conn, id)
 		if err != nil {
 			fmt.Printf("[ERROR] [AuthMiddleware] failed to get user by id: %s\n", err)
 			ctx.JSON(401, gin.H{"message": "Unauthorized"})

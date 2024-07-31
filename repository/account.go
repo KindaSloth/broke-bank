@@ -2,6 +2,7 @@ package repository
 
 import (
 	"broke-bank/model"
+	"context"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -10,8 +11,9 @@ type AccountRepository struct {
 	Pg *sqlx.DB
 }
 
-func (ac *AccountRepository) CreateAccount(user_id string, name string, status string) error {
-	_, err := ac.Pg.Exec(
+func (ac *AccountRepository) CreateAccount(ctx context.Context, conn *sqlx.Conn, user_id string, name string, status string) error {
+	_, err := conn.ExecContext(
+		ctx,
 		`INSERT INTO "account" (user_id, name, balance, status)
 		VALUES ($1, $2, 0, $3)
 		`,
@@ -23,9 +25,10 @@ func (ac *AccountRepository) CreateAccount(user_id string, name string, status s
 	return err
 }
 
-func (ac *AccountRepository) GetAccount(acc_id string) (*model.Account, error) {
+func (ac *AccountRepository) GetAccount(ctx context.Context, conn *sqlx.Conn, acc_id string) (*model.Account, error) {
 	account := new(model.Account)
-	err := ac.Pg.Get(
+	err := conn.GetContext(
+		ctx,
 		account,
 		`SELECT acc.id, acc.user_id, acc.name, acc.balance, acc.status, acc.created_at, acc.updated_at 
 		FROM "account" acc WHERE acc.id = $1`,
@@ -35,9 +38,10 @@ func (ac *AccountRepository) GetAccount(acc_id string) (*model.Account, error) {
 	return account, err
 }
 
-func (ac *AccountRepository) GetMyAccounts(user_id string, limit int, offset int) (*[]model.Account, error) {
+func (ac *AccountRepository) GetMyAccounts(ctx context.Context, conn *sqlx.Conn, user_id string, limit int, offset int) (*[]model.Account, error) {
 	accounts := new([]model.Account)
-	err := ac.Pg.Select(
+	err := conn.SelectContext(
+		ctx,
 		accounts,
 		`
 		SELECT 
@@ -61,8 +65,9 @@ func (ac *AccountRepository) GetMyAccounts(user_id string, limit int, offset int
 	return accounts, err
 }
 
-func (ac *AccountRepository) DisableAccount(acc_id string) error {
-	_, err := ac.Pg.Exec(
+func (ac *AccountRepository) DisableAccount(ctx context.Context, conn *sqlx.Conn, acc_id string) error {
+	_, err := conn.ExecContext(
+		ctx,
 		`UPDATE "account"
 		SET status = 'inactive'
 		WHERE id = $1`,

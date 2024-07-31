@@ -3,6 +3,8 @@ package repository
 import (
 	"broke-bank/model"
 	"broke-bank/utils"
+	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -13,9 +15,10 @@ type TransactionRepository struct {
 	Pg *sqlx.DB
 }
 
-func (tr *TransactionRepository) GetTransaction(transaction_id string) (*model.Transaction, error) {
+func (tr *TransactionRepository) GetTransaction(ctx context.Context, conn *sqlx.Conn, transaction_id string) (*model.Transaction, error) {
 	transaction := new(model.Transaction)
-	err := tr.Pg.Get(
+	err := conn.GetContext(
+		ctx,
 		transaction,
 		`SELECT * FROM "transaction" tx WHERE tx.id = $1`,
 		transaction_id,
@@ -24,8 +27,8 @@ func (tr *TransactionRepository) GetTransaction(transaction_id string) (*model.T
 	return transaction, err
 }
 
-func (tr *TransactionRepository) DepositTransaction(transaction_id uuid.UUID, to_account_id string, amount decimal.Decimal) error {
-	tx, err := tr.Pg.Beginx()
+func (tr *TransactionRepository) DepositTransaction(ctx context.Context, conn *sqlx.Conn, transaction_id uuid.UUID, to_account_id string, amount decimal.Decimal) error {
+	tx, err := conn.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: false})
 	if err != nil {
 		return err
 	}
@@ -49,8 +52,8 @@ func (tr *TransactionRepository) DepositTransaction(transaction_id uuid.UUID, to
 	return err
 }
 
-func (tr *TransactionRepository) WithdrawalTransaction(transaction_id uuid.UUID, from_account_id string, amount decimal.Decimal) error {
-	tx, err := tr.Pg.Beginx()
+func (tr *TransactionRepository) WithdrawalTransaction(ctx context.Context, conn *sqlx.Conn, transaction_id uuid.UUID, from_account_id string, amount decimal.Decimal) error {
+	tx, err := conn.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: false})
 	if err != nil {
 		return err
 	}
@@ -87,8 +90,8 @@ func GetAccountBalance(first_account_balance *AccountBalance, second_account_bal
 	return second_account_balance.Balance
 }
 
-func (tr *TransactionRepository) TransferTransaction(transaction_id uuid.UUID, from_account_id string, to_account_id string, amount decimal.Decimal) error {
-	tx, err := tr.Pg.Beginx()
+func (tr *TransactionRepository) TransferTransaction(ctx context.Context, conn *sqlx.Conn, transaction_id uuid.UUID, from_account_id string, to_account_id string, amount decimal.Decimal) error {
+	tx, err := conn.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: false})
 	if err != nil {
 		return err
 	}
