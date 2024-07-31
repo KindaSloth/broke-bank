@@ -3,6 +3,7 @@ package server
 import (
 	"broke-bank/utils"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,6 +41,14 @@ func (s *Server) DepositTransaction() gin.HandlerFunc {
 			ctx.JSON(422, gin.H{"error": "Invalid input"})
 			return
 		}
+
+		if _, err := s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
+			log.Println("[ERROR] [DepositTransaction] failed to set SERIALIZABLE transaction level: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to complete deposit transaction"})
+			return
+		}
+		// TODO: handle err
+		defer s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`)
 
 		transaction_id, err := uuid.NewV7()
 		if err != nil {
@@ -85,6 +94,14 @@ func (s *Server) WithdrawalTransaction() gin.HandlerFunc {
 			ctx.Status(401)
 			return
 		}
+
+		if _, err = s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
+			log.Println("[ERROR] [WithdrawalTransaction] failed to set SERIALIZABLE transaction level: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to complete withdrawal transaction"})
+			return
+		}
+		// TODO: handle err
+		defer s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`)
 
 		account, err := s.Repositories.AccountRepository.GetAccount(req.FromAccountId)
 		if err != nil {
@@ -149,6 +166,14 @@ func (s *Server) TransferTransaction() gin.HandlerFunc {
 			return
 		}
 
+		if _, err = s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`); err != nil {
+			log.Println("[ERROR] [TransferTransaction] failed to set SERIALIZABLE transaction level: ", err)
+			ctx.JSON(500, gin.H{"error": "Failed to complete transfer transaction"})
+			return
+		}
+		// TODO: handle err
+		defer s.Repositories.Pg.Exec(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`)
+
 		from_account, err := s.Repositories.AccountRepository.GetAccount(req.FromAccountId)
 		if err != nil {
 			log.Printf("[ERROR] [TransferTransaction] failed to get sender account: %s, account ID: %s\n", err, req.FromAccountId)
@@ -187,11 +212,21 @@ func (s *Server) TransferTransaction() gin.HandlerFunc {
 			return
 		}
 
-		err = s.Repositories.TransactionRepository.TransferTransaction(transaction_id, req.FromAccountId, req.ToAccountId, req.Amount)
-		if err != nil {
-			log.Println("[ERROR] [TransferTransaction] failed to complete transfer transaction: ", err)
-			ctx.JSON(500, gin.H{"error": "Failed to complete transfer transaction"})
-			return
+		max_retries := 3
+
+		for i := 0; i < max_retries; i++ {
+			err = s.Repositories.TransactionRepository.TransferTransaction(transaction_id, req.FromAccountId, req.ToAccountId, req.Amount)
+			if err == nil {
+				return
+			}
+
+			if (i + 1) == max_retries {
+				log.Println("[ERROR] [TransferTransaction] failed to complete transfer transaction: ", err)
+				ctx.JSON(500, gin.H{"error": "Failed to complete transfer transaction"})
+				return
+			}
+
+			time.Sleep(time.Millisecond * time.Duration(100*i))
 		}
 
 		ctx.Status(200)
