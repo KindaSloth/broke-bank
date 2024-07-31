@@ -217,6 +217,7 @@ func (s *Server) TransferTransaction() gin.HandlerFunc {
 		for i := 0; i < max_retries; i++ {
 			err = s.Repositories.TransactionRepository.TransferTransaction(transaction_id, req.FromAccountId, req.ToAccountId, req.Amount)
 			if err == nil {
+				ctx.Status(200)
 				return
 			}
 
