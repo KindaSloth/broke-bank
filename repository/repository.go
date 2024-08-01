@@ -47,8 +47,7 @@ func New() Repositories {
 		log.Fatal(msg)
 	}
 
-	pg.SetMaxOpenConns(100)
-	pg.SetMaxIdleConns(50)
+	pg.SetMaxOpenConns(50)
 
 	valkey, err := valkey.NewClient(valkey.ClientOption{InitAddress: []string{valkey_addr}})
 	if err != nil {

@@ -4,7 +4,6 @@ function perform_transfer {
        --request POST \
        --url http://localhost:5000/transaction/transfer \
        --header 'Content-Type: application/json' \
-       --header 'User-Agent: insomnia/2023.5.8' \
        --data '{
         "amount": "1.00",
         "to_account_id": "0191068b-1b09-7c70-8c61-d9dc4078f322",
@@ -14,8 +13,8 @@ function perform_transfer {
 
 export -f perform_transfer
 
-num_requests=1000
+num_requests=100
 
-parallelism=100
+parallelism=10
 
 seq $num_requests | xargs -n1 -P$parallelism -I{} bash -c 'perform_transfer'

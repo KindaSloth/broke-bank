@@ -28,15 +28,7 @@ func (s *Server) CreateAccount() gin.HandlerFunc {
 			return
 		}
 
-		conn, err := s.Repositories.Pg.Connx(ctx)
-		if err != nil {
-			log.Println("[ERROR] [CreateAccount] failed to get connection from db pool: ", err)
-			ctx.JSON(500, gin.H{"error": "Failed to create account"})
-			return
-		}
-		defer conn.Close()
-
-		err = s.Repositories.AccountRepository.CreateAccount(ctx, conn, user.Id.String(), req.Name, "active")
+		err = s.Repositories.AccountRepository.CreateAccount(user.Id.String(), req.Name, "active")
 		if err != nil {
 			log.Println("[ERROR] [CreateAccount] failed to create account: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to create account"})
@@ -70,15 +62,7 @@ func (s *Server) GetAccount() gin.HandlerFunc {
 			return
 		}
 
-		conn, err := s.Repositories.Pg.Connx(ctx)
-		if err != nil {
-			log.Println("[ERROR] [GetAccount] failed to get connection from db pool: ", err)
-			ctx.JSON(500, gin.H{"error": "Failed to get account"})
-			return
-		}
-		defer conn.Close()
-
-		account, err := s.Repositories.AccountRepository.GetAccount(ctx, conn, account_id)
+		account, err := s.Repositories.AccountRepository.GetAccount(account_id)
 		if err != nil {
 			log.Printf("[ERROR] [GetAccount] failed to get account: %s, account ID: %s\n", err, account_id)
 			ctx.JSON(500, gin.H{"error": "Failed to get account"})
@@ -114,15 +98,7 @@ func (s *Server) DisableAccount() gin.HandlerFunc {
 			return
 		}
 
-		conn, err := s.Repositories.Pg.Connx(ctx)
-		if err != nil {
-			log.Println("[ERROR] [DisableAccount] failed to get connection from db pool: ", err)
-			ctx.JSON(500, gin.H{"error": "Failed to disable account"})
-			return
-		}
-		defer conn.Close()
-
-		account, err := s.Repositories.AccountRepository.GetAccount(ctx, conn, account_id)
+		account, err := s.Repositories.AccountRepository.GetAccount(account_id)
 		if err != nil {
 			log.Println("[ERROR] [DisableAccount] failed to get account: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to get account"})
@@ -139,7 +115,7 @@ func (s *Server) DisableAccount() gin.HandlerFunc {
 			return
 		}
 
-		err = s.Repositories.AccountRepository.DisableAccount(ctx, conn, account_id)
+		err = s.Repositories.AccountRepository.DisableAccount(account_id)
 		if err != nil {
 			log.Println("[ERROR] [DisableAccount] failed to disable account: ", err)
 			ctx.JSON(500, gin.H{"error": "Failed to disable account"})
